@@ -3400,7 +3400,7 @@ function renderSet() {
     if (md.id === 'match' && DB.best[set.id] && DB.best[set.id].match) dsc = ic('trophy') + fmtTime(DB.best[set.id].match);
     if (md.id === 'meteor' && DB.best[set.id] && DB.best[set.id].meteor) dsc = ic('trophy') + DB.best[set.id].meteor + ' pts';
     if (md.id === 'flash' && DB.best[set.id] && DB.best[set.id].flash) dsc = ic('trophy') + DB.best[set.id].flash + ' pts';
-    h += '<button class="mode-tile' + (ok ? '' : ' off') + '" style="--mc:' + md.color + '" data-act="' + (ok ? 'play' : 'modeOff') + '" data-mode="' + md.id + '"><span class="e">' + md.emoji + '</span><span><b>' + md.name + '</b><small>' + esc(dsc) + '</small></span></button>';
+    h += '<button class="mode-tile' + (ok ? '' : ' off') + '" style="--mc:' + md.color + '" data-act="' + (ok ? 'play' : 'modeOff') + '" data-mode="' + md.id + '"><span class="e">' + md.emoji + '</span><span><b>' + md.name + '</b><small>' + dsc + '</small></span></button>';
   }
   h += '</div>';
   var dir = getDir(set);
