@@ -3098,15 +3098,27 @@ function norm(s, math) {
   }
   return s.replace(/^\s+|\s+$/g, '');
 }
-function variants(ans) {
-  var parts = String(ans).split(/\s+\/\s+|;|\n/), out = [];
+function splitAlts(ans, math) {
+  var s = String(ans);
+  if (math) return s.split(/\s+\/\s+|;|\n/);
+  var re = /\s*\/\s*|;|\n|\s+ou\s+|\s+or\s+|\s+o\s+|\s+oder\s+/;
+  // les virgules séparent des synonymes, sauf dans une vraie phrase (ponctuation finale)
+  if (!/[.?!¿¡]\s*$/.test(s.replace(/\)\s*$/, ''))) re = /\s*\/\s*|;|\n|,|\s+ou\s+|\s+or\s+|\s+o\s+|\s+oder\s+/;
+  return s.split(re);
+}
+function variants(ans, math) {
+  var parts = splitAlts(ans, math), out = [String(ans)];
   for (var i = 0; i < parts.length; i++) {
     var p = parts[i].replace(/^\s+|\s+$/g, ''); if (!p) continue;
     out.push(p);
     var noPar = p.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
     if (noPar && noPar !== p) out.push(noPar);
   }
-  if (!out.length) out.push(String(ans));
+  return out;
+}
+function altList(ans, math) {
+  var parts = splitAlts(ans, math), out = [];
+  for (var i = 0; i < parts.length; i++) { var p = parts[i].replace(/^\s+|\s+$/g, ''); if (p && out.indexOf(p) < 0) out.push(p); }
   return out;
 }
 function lev(a, b) {
@@ -3121,8 +3133,16 @@ function lev(a, b) {
   return prev[b.length];
 }
 function checkAnswer(input, ans, math) {
+  var r = checkOne(input, ans, math);
+  if (r.ok || r.empty || math) return r;
+  var bits = String(input).split(/\s*[,;\/]\s*|\s+(?:ou|or|et|and)\s+/), typo = false, n = 0;
+  if (bits.length < 2) return r;
+  for (var i = 0; i < bits.length; i++) { if (!bits[i].replace(/\s/g, '')) continue; var q = checkOne(bits[i], ans, math); if (!q.ok) return r; if (q.typo) typo = true; n++; }
+  return n ? { ok: true, typo: typo } : r;
+}
+function checkOne(input, ans, math) {
   var ni = norm(input, math); if (!ni) return { ok: false, empty: true };
-  var vs = variants(ans), i;
+  var vs = variants(ans, math), i;
   for (i = 0; i < vs.length; i++) { if (ni === norm(vs[i], math) || ni === norm(plain(vs[i], math), math)) return { ok: true }; }
   if (!math) {
     for (i = 0; i < vs.length; i++) { var nv = norm(vs[i], false); if (nv.length >= 5 && lev(ni, nv) <= (nv.length >= 10 ? 2 : 1)) return { ok: true, typo: true }; }
@@ -3655,7 +3675,7 @@ function renderEdit() {
   h += '</div><div class="sec-title"><h2>' + ic('layers') + 'Cartes</h2><div class="spacer"></div><span class="muted small" id="edCount" style="font-weight:800"></span></div>';
   h += '<div id="langHint"></div><div class="row" style="margin-bottom:12px"><button class="btn sm yellow" data-act="edTrAll">' + ic('languages') + 'Traduire les cases vides</button><span class="muted small" style="font-weight:700">Une traduction est proposée dès que tu tapes un mot.</span></div>';
   h += '<div id="edCards"></div><button class="btn wide pri big" data-act="edAdd">＋ Ajouter une carte</button>';
-  h += '<p class="muted small" style="text-align:center;margin-top:12px">Astuce : plusieurs réponses acceptées → sépare-les par « ; » ou « / ».<br>Ce qui est entre parenthèses est facultatif : « (to) wake up ».</p>';
+  h += '<p class="muted small" style="text-align:center;margin-top:12px">Plusieurs réponses possibles (synonymes) ? Sépare-les par une virgule, « ; » ou « / » : une seule suffira pour avoir juste.<br>Ce qui est entre parenthèses est facultatif : « (to) wake up ».</p>';
   h += '</div>';
   h += '<div class="sticky-save"><div class="pal-tabs">' + palTab('acc', 'Accents') + palTab('mat', 'Maths') + palTab('sci', 'Sciences') + palTab('gr', 'Grec') + '</div><div class="palette" id="palette">' + paletteHTML() + '</div><div class="in"><button class="btn" data-act="cancelEdit">Annuler</button><div class="spacer"></div><button class="imgbtn save" data-act="saveEdit" aria-label="Enregistrer">' + art('btn_save') + '</button></div></div>';
   $app.innerHTML = h;
@@ -4309,7 +4329,8 @@ function attachWritten(G) {
     G.locked = true; inp.readOnly = true;
     if (r.ok) {
       inp.classList.add('ok'); G.streak = (G.streak || 0) + 1; sfx('good', G.streak); autoSay(G.expected, G.aLang, G.math);
-      byId('fb').innerHTML = r.typo ? fbHTML('typo', ic('eye') + 'Presque ! Attention à l\'orthographe :', G.expected, G.math, null, G.aLang) + contBtn(false) : fbHTML('ok', ic('check') + praise());
+      var alts = altList(G.expected, G.math), more = alts.length > 1 ? '<div class="small" style="margin-top:6px">Toutes les réponses acceptées : ' + alts.map(function (x) { return '<b>' + fmt(x, G.math) + '</b>'; }).join(' · ') + '</div>' : '';
+      byId('fb').innerHTML = r.typo ? fbHTML('typo', ic('eye') + 'Presque ! Attention à l\'orthographe :', G.expected, G.math, null, G.aLang) + contBtn(false) : fbHTML('ok', ic('check') + praise() + more);
       G.onResult(true);
       if (!r.typo) G.autoT = setTimeout(G.next, 850);
     } else {
